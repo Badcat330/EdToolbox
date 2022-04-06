@@ -255,9 +255,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_pushButtonCreateLogins_clicked(self):
         try:
             #self.create_logins()
-            AssignmentsCreation.create_assignments(["student1_id", "student2_id"],
-                                                   "class_id", "type", "format",
-                                                   10, "2022-09-07T00:00:00Z", "LinkTask")
+            AssignmentsCreation.create_assignments(["x"],
+                                                   "x", "type", "format",
+                                                   10, "2022-09-07T00:00:00Z", "NewTestTask7")
         except TokenException as ex:
             QMessageBox.critical(self, "Error", str(ex))
 

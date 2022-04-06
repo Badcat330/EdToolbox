@@ -85,7 +85,7 @@ def add_resource_to_assignment(class_id, assignment_id, task_link):
     print(response)
 
 
-def create_assignment(class_id, due_date, name, student_id, task_link):
+def create_assignment(class_id, due_date, name, student_id):
     create_url = f"https://graph.microsoft.com/beta/education/classes/{class_id}/assignments"
 
     headers = {
@@ -113,14 +113,13 @@ def create_assignment(class_id, due_date, name, student_id, task_link):
               "}"
 
     response = requests.request("POST", create_url, headers=headers, data=payload.encode('utf8')).json()
-    print(response)
     assignment_id = response['id']
-    add_resource_to_assignment(class_id, assignment_id, task_link)
 
     publish_url = f"https://graph.microsoft.com/beta/education/classes/" \
                   f"{class_id}/assignments/{assignment_id}/publish"
     response = requests.request("POST", publish_url, headers=headers).json()
-    print(response)
+    print('publish: ', response)
+    return assignment_id
 
 
 def get_user(token, user_name):
