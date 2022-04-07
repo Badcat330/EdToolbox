@@ -122,6 +122,70 @@ def create_assignment(class_id, due_date, name, student_id):
     return assignment_id
 
 
+def get_tags_in_class(class_id):
+    url = f"https://graph.microsoft.com/beta/teams/{class_id}/tags"
+
+    headers = {
+        'Authorization': Variables.user_token
+    }
+    response = requests.request("GET", url, headers=headers).json()
+
+    return dict(map(lambda x: (x['displayName'], x['id']), response['value']))
+
+
+def create_tag(class_id, tag_name):
+    url = f"https://graph.microsoft.com/beta/teams/{class_id}/tags"
+
+    headers = {
+        'Authorization': Variables.user_token,
+        'Content-Type': 'application/json'
+    }
+
+    payload = "{\n" \
+              f"\"displayName\": \"{tag_name}\", \n" \
+              f"\"members\": [] \n" \
+              "}"
+
+    response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
+
+    return response['id']
+
+
+def create_class(class_name):
+    url = f"https://graph.microsoft.com/beta/teams"
+
+    headers = {
+        'Authorization': Variables.user_token,
+        'Content-Type': 'application/json'
+    }
+
+    payload = "{\n" \
+              f"\"template@odata.bind\": \"https://graph.microsoft.com/beta/teamsTemplates('educationClass')\", \n" \
+              f"\"displayName\": \"{class_name}\", \n" \
+              f"\"description\": \"\" \n" \
+              "}"
+
+    response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
+    # value in header will be in format: "/teams('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')"
+    return response.headers['Content-Location'][8:36]
+
+
+def add_member_to_class(class_id, student_email):
+    url = f"https://graph.microsoft.com/beta/education/classes/{class_id}/members/$ref"
+
+    headers = {
+        'Authorization': Variables.user_token,
+        'Content-Type': 'application/json'
+    }
+
+    payload = "{\n" \
+              f"\"@odata.id\": \"https://graph.microsoft.com/beta/education/users/{student_email}\" \n" \
+              "}"
+
+    response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
+    # TODO: check errors
+
+
 def get_user(token, user_name):
     url = f"https://graph.microsoft.com/v1.0/users/{user_name}" \
           f"?$select=id,displayName,mail,givenName,surname,userPrincipalName&$expand=extensions"

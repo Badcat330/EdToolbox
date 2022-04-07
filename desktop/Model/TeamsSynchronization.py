@@ -18,16 +18,25 @@ classes_in_organization = {}
 def add_member_to_class(member_data, class_id):
     email, tag = member_data
 
+    API.add_member_to_class(class_id, email)
+    # TODO: add to tag group
 
 
 def sync_class(class_element):
+    global classes_in_organization
+
     class_name, table_members = class_element
     table_members_emails = set(table_members.keys())
-
-    #  TODO: update tags
+    table_members_tags = set(table_members.values())
 
     if class_name not in classes_in_organization:
-        ...  # create team
+        classes_in_organization[class_name] = API.create_class(class_name)
+
+    tags = API.get_tags_in_class(classes_in_organization[class_name])
+    # Updating tags in class
+    for tag_name in table_members_tags.difference(set(tags.keys())):
+        tags[tag_name] = API.create_tag(
+            classes_in_organization[class_name], tag_name)
 
     class_members = API.get_class_members(classes_in_organization[class_name])
     class_members_emails = set(class_members.keys())
