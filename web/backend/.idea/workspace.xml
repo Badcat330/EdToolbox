@@ -5,14 +5,15 @@
       <change beforePath="$PROJECT_DIR$/../../desktop/Model/AssignmentsCreation.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../desktop/Model/AssignmentsCreation.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../desktop/Model/EnvironmentVariables.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../desktop/Model/EnvironmentVariables.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../desktop/Model/GraphAPI.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../desktop/Model/GraphAPI.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../desktop/Model/TeamsSynchronization.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../desktop/Model/TeamsSynchronization.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../desktop/UI/LoginView.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../desktop/UI/LoginView.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../desktop/UI/MainView.py" beforeDir="false" afterPath="$PROJECT_DIR$/../../desktop/UI/MainView.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/backend.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/backend.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/flaskProject.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/GraphAPILib.py" beforeDir="false" afterPath="$PROJECT_DIR$/GraphAPILib.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/variables.py" beforeDir="false" afterPath="$PROJECT_DIR$/variables.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../frontend/src/actions/tutoring_system.js" beforeDir="false" afterPath="$PROJECT_DIR$/../frontend/src/actions/tutoring_system.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../frontend/yarn.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../frontend/yarn.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -77,6 +78,23 @@
       <option name="presentableId" value="Default" />
       <updated>1649274127560</updated>
       <workItem from="1649274133503" duration="5632000" />
+      <workItem from="1649282693983" duration="656000" />
+      <workItem from="1649367172652" duration="217000" />
+      <workItem from="1649409618135" duration="1059000" />
+      <workItem from="1649432718627" duration="1425000" />
+      <workItem from="1649486082004" duration="1487000" />
+      <workItem from="1649519996459" duration="291000" />
+      <workItem from="1649520379549" duration="99000" />
+      <workItem from="1649525044744" duration="952000" />
+      <workItem from="1649577646562" duration="3921000" />
+      <workItem from="1649773009455" duration="1205000" />
+      <workItem from="1649875900067" duration="358000" />
+      <workItem from="1649876267623" duration="6617000" />
+      <workItem from="1649953988764" duration="8759000" />
+      <workItem from="1650014040994" duration="2982000" />
+      <workItem from="1650051378841" duration="501000" />
+      <workItem from="1650193678383" duration="2786000" />
+      <workItem from="1650607983574" duration="17000" />
     </task>
     <servers />
   </component>
@@ -84,6 +102,6 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/backend$backend.coverage" NAME="backend Coverage Results" MODIFIED="1649279930880" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/backend$backend.coverage" NAME="backend Coverage Results" MODIFIED="1649885266555" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>

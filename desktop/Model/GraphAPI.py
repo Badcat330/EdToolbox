@@ -2,6 +2,8 @@ import requests
 import Model.EnvironmentVariables as Variables
 import Model.Exceptions as Exceptions
 
+import time
+
 
 def get_token(user, pwd):
     url = f"https://login.microsoftonline.com/{Variables.TenantID}/oauth2/v2.0/token"
@@ -22,13 +24,32 @@ def get_token(user, pwd):
 
     if response.status_code != 200:
         print('Token request fault')
-        # TODO handle exception
         return None
 
     token = response.json()['access_token']
     refresh_token = response.json()['refresh_token']
 
     return token, refresh_token
+
+
+def get_user(user_name):
+    url = f"https://graph.microsoft.com/v1.0/users/{user_name}"
+
+    headers = {
+        'Authorization': Variables.user_token
+    }
+
+    response = requests.request("GET", url, headers=headers).json()
+
+    if 'error' in response:
+        if response['error']['code'] == 'InvalidAuthenticationToken':
+            raise Exceptions.TokenException('You don\'t have permissions!')
+        elif response['error']['code'] == 'Request_ResourceNotFound':
+            raise Exceptions.StudentNotFoundException('Student not found!')
+        # TODO find all possible exceptions
+
+    # return information about user in json
+    return response
 
 
 def get_classes_in_organization():
@@ -42,7 +63,7 @@ def get_classes_in_organization():
     if 'error' in response:
         ...  # raise exception
 
-    return dict(map(lambda x: (x['displayName'], x['id']), response['value']))
+    return response['value']
 
 
 def get_class_members(class_id):
@@ -54,13 +75,26 @@ def get_class_members(class_id):
     response = requests.request("GET", url, headers=headers).json()
 
     if 'error' in response:
+        if response['error']['code'] == 'Request_ResourceNotFound':
+            time.sleep(2)
+            return get_class_members(class_id)
         ...  # raise exception
 
-    return dict(map(lambda x: (x['userPrincipalName'], x['id']), response['value']))
+    return response['value']
 
 
-def add_members_to_class(class_id, members):
-    ...
+def get_class_teachers(class_id):
+    url = f"https://graph.microsoft.com/beta/education/classes/{class_id}/teachers"
+
+    headers = {
+        'Authorization': Variables.user_token
+    }
+    response = requests.request("GET", url, headers=headers).json()
+
+    if 'error' in response:
+        ...  # raise exception
+
+    return response['value']
 
 
 def add_resource_to_assignment(class_id, assignment_id, task_link):
@@ -83,6 +117,24 @@ def add_resource_to_assignment(class_id, assignment_id, task_link):
 
     response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
     print(response)
+
+
+def publish_assignment(class_id, assignment_id):
+    headers = {
+        'Authorization': Variables.user_token,
+        'Content-Type': 'application/json'
+    }
+
+    publish_url = f"https://graph.microsoft.com/beta/education/classes/" \
+                  f"{class_id}/assignments/{assignment_id}/publish"
+    response = requests.request("POST", publish_url, headers=headers).json()
+    print('publish: ', response)
+    if 'error' in response:
+        if response['error']['innerError']['code'] == 'invalidAssignTo':
+            time.sleep(1)
+            return publish_assignment(class_id, assignment_id)
+
+    return assignment_id
 
 
 def create_assignment(class_id, due_date, name, student_id):
@@ -113,13 +165,12 @@ def create_assignment(class_id, due_date, name, student_id):
               "}"
 
     response = requests.request("POST", create_url, headers=headers, data=payload.encode('utf8')).json()
-    assignment_id = response['id']
+    if 'error' in response:
+        if response['error']['innerError']['code'] == 'invalidAssignTo':
+            time.sleep(1)
+            return create_assignment(class_id, due_date, name, student_id)
 
-    publish_url = f"https://graph.microsoft.com/beta/education/classes/" \
-                  f"{class_id}/assignments/{assignment_id}/publish"
-    response = requests.request("POST", publish_url, headers=headers).json()
-    print('publish: ', response)
-    return assignment_id
+    return publish_assignment(class_id, response['id'])
 
 
 def get_tags_in_class(class_id):
@@ -133,7 +184,18 @@ def get_tags_in_class(class_id):
     return dict(map(lambda x: (x['displayName'], x['id']), response['value']))
 
 
-def create_tag(class_id, tag_name):
+def get_tag_members(class_id, tag_id):
+    url = f"https://graph.microsoft.com/beta/teams/{class_id}/tags/{tag_id}/members"
+
+    headers = {
+        'Authorization': Variables.user_token
+    }
+    response = requests.request("GET", url, headers=headers).json()
+
+    return list(map(lambda x: x['userId'], response['value']))
+
+
+def create_tag(class_id, tag_name, members, has_id=False):
     url = f"https://graph.microsoft.com/beta/teams/{class_id}/tags"
 
     headers = {
@@ -141,17 +203,36 @@ def create_tag(class_id, tag_name):
         'Content-Type': 'application/json'
     }
 
+    members_list = ""
+
+    for i in members:
+        if has_id:
+            members_list += "{ \n" \
+                            f"\"userId\": \"{i['id']}\" \n" \
+                            "} \n"
+        else:
+            members_list += "{ \n" \
+                            f"\"userId\": \"{get_user(i)['id']}\" \n" \
+                            "} \n"
+        if i != members[-1]:
+            members_list += ',\n'
+
     payload = "{\n" \
               f"\"displayName\": \"{tag_name}\", \n" \
-              f"\"members\": [] \n" \
+              f"\"members\": [ \n" \
+              f"{members_list}" \
+              f"] \n" \
               "}"
 
-    response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
+    tag_id = None
+    if len(members) > 0:
+        response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
+        tag_id = response['id']
 
-    return response['id']
+    return tag_id
 
 
-def create_class(class_name):
+def create_class(class_name, owner):
     url = f"https://graph.microsoft.com/beta/teams"
 
     headers = {
@@ -162,16 +243,24 @@ def create_class(class_name):
     payload = "{\n" \
               f"\"template@odata.bind\": \"https://graph.microsoft.com/beta/teamsTemplates('educationClass')\", \n" \
               f"\"displayName\": \"{class_name}\", \n" \
-              f"\"description\": \"\" \n" \
+              f"\"description\": \"\", \n" \
+              f"\"members\": [ \n" \
+              "{ \n" \
+              f"\"@odata.type\": \"#microsoft.graph.aadUserConversationMember\", \n" \
+              f"\"roles\": [\"owner\"], \n" \
+              f"\"user@odata.bind\": \"https://graph.microsoft.com/beta/users('{owner}')\" \n" \
+              "} \n" \
+              "] \n" \
               "}"
 
-    response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
+    response = requests.request("POST", url, headers=headers, data=payload.encode('utf8'))
+    resp_headers = response.headers
     # value in header will be in format: "/teams('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')"
-    return response.headers['Content-Location'][8:36]
+    return resp_headers['Content-Location'][8:44]
 
 
 def add_member_to_class(class_id, student_email):
-    url = f"https://graph.microsoft.com/beta/education/classes/{class_id}/members/$ref"
+    url = f"https://graph.microsoft.com/beta/teams/{class_id}/members"
 
     headers = {
         'Authorization': Variables.user_token,
@@ -179,336 +268,25 @@ def add_member_to_class(class_id, student_email):
     }
 
     payload = "{\n" \
-              f"\"@odata.id\": \"https://graph.microsoft.com/beta/education/users/{student_email}\" \n" \
+              f"\"@odata.type\": \"#microsoft.graph.aadUserConversationMember\", \n" \
+              f"\"roles\": [], \n" \
+              f"\"user@odata.bind\": \"https://graph.microsoft.com/beta/users('{student_email}')\" \n" \
               "}"
 
-    response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
-    # TODO: check errors
+    requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
 
 
-def get_user(token, user_name):
-    url = f"https://graph.microsoft.com/v1.0/users/{user_name}" \
-          f"?$select=id,displayName,mail,givenName,surname,userPrincipalName&$expand=extensions"
+def add_member_to_tag(class_id, tag_id, student_email):
+    url = f"https://graph.microsoft.com/beta/teams/{class_id}/tags/{tag_id}/members"
 
     headers = {
-        'Authorization': token
-    }
-
-    response = requests.request("GET", url, headers=headers)
-    parsed_response = response.json()
-
-    if 'error' in parsed_response:
-        if parsed_response['error']['code'] == 'InvalidAuthenticationToken':
-            raise Exceptions.TokenException('You don\'t have permissions!')
-        elif parsed_response['error']['code'] == 'Request_ResourceNotFound':
-            raise Exceptions.StudentNotFoundException('Student not found!')
-        # TODO find all possible exceptions
-
-    # return information about user in json
-    return parsed_response
-
-
-def get_uc_payload(display_name, given_name, surname, mail_nickname, user_principal_name, password):
-    # displayName: users name and surname
-    # givenName: users name
-    # surname: users surname
-    # mailNickname: users e-mail in system without damien, example aglushko
-    # userPrincipalName: e-mail in system, example aglushko@ithse.ru
-    # password: disposable password
-    return "{\n  " \
-           "\"accountEnabled\": true,\n  " \
-           f"\"displayName\": \"{display_name}\",\n  " \
-           f"\"givenName\": \"{given_name}\",\n  " \
-           f"\"surname\": \"{surname}\",\n  " \
-           f"\"mailNickname\" : \"{mail_nickname}\",\n  " \
-           f"\"userPrincipalName\": \"{user_principal_name}\",\n  " \
-           f"\"usageLocation\": \"US\",\n " \
-           "\"passwordProfile\" : {\n    " \
-           "\"forceChangePasswordNextSignIn\": true,\n    " \
-           f"\"password\": \"{password}\"\n  " \
-           "}\n" \
-           "}"
-
-
-def get_user_extension_payload(personal_mail):
-    return "{\n" \
-           "\"@odata.type\":\"microsoft.graph.openTypeExtension\",\n    " \
-           f"\"extensionName\":\"com.CoDiM.managmentTool\",\n    " \
-           f"\"personalMail\":\"{personal_mail}\"\n" \
-           "}\n"
-
-
-def get_user_licence_payload():
-    return "{\n  \"addLicenses\": " \
-           "[\n    " \
-           "{\n      " \
-           "\"disabledPlans\": [],\n      " \
-           "\"skuId\": \"314c4481-f395-4525-be8b-2ec4bb1e9d91\"\n    " \
-           "}\n  ],\n  " \
-           "\"removeLicenses\": [ ]" \
-           "\n}"
-
-
-def post_multiple_users(token, users, passwords):
-    url = "https://graph.microsoft.com/v1.0/$batch"
-    if len(users) == 0:
-        return [], []
-
-    payload = "{\n  " \
-              "\"requests\": [\n  "
-    headers = {
-        'Authorization': token,
+        'Authorization': Variables.user_token,
         'Content-Type': 'application/json'
     }
-    curr_id = 1
 
-    for i in range(len(users)):
-        uc_payload = get_uc_payload(users[i][4], users[i][1],
-                                    users[i][0], users[i][5],
-                                    users[i][6], passwords[i])
-        payload += "{\n" \
-                   f"\"id\": \"{curr_id}\", \n" \
-                   f"\"url\": \"/users\", \n" \
-                   f"\"method\": \"POST\", \n" \
-                   "\"headers\": {\n" \
-                   f"\"Authorization\": \"{token}\", \n" \
-                   f"\"Content-Type\": \"application/json\" \n" \
-                   "},\n" \
-                   f"\"body\": " \
-                   f"{uc_payload}\n" \
-                   "}"
-
-        if i != len(users) - 1:
-            payload += ", \n"
-        else:
-            payload += "\n"
-
-        curr_id += 1
-
-    payload += "]\n" \
-               "}"
-
-    print(payload)
-    responses = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
-    good_response_indexes = []
-    error_response_indexes = []
-    print(responses)
-    for i in range(len(responses['responses'])):
-        if 'error' in responses['responses'][i] or 'error' in responses['responses'][i]['body']:
-            error_response_indexes.append(i)
-        else:
-            good_response_indexes.append(i)
-
-    return good_response_indexes, error_response_indexes
-
-
-def get_users_of_groups(token, ids):
-    url = "https://graph.microsoft.com/v1.0/$batch"
-
-    payload = "{\n  " \
-              "\"requests\": [\n  "
-    headers = {
-        'Authorization': token,
-        'Content-Type': 'application/json'
-    }
-    curr_id = 1
-
-    for group_id in ids:
-        payload += "{\n" \
-                   f"\"id\": \"{curr_id}\", \n" \
-                   f"\"url\": \"/groups/{group_id}/members/microsoft.graph.user?$select=userPrincipalName\", \n" \
-                   f"\"method\": \"GET\", \n" \
-                   "\"headers\": {\n" \
-                   f"\"Authorization\": \"{token}\" \n" \
-                   "}\n" \
-                   "}\n"
-
-        if group_id != ids[-1]:
-            payload += ", \n"
-        else:
-            payload += "\n"
-
-        curr_id += 1
-
-    payload += "]\n" \
-               "}"
-
-    parsed_responses = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
-    mails = set()
-    print(parsed_responses)
-
-    for response in parsed_responses['responses']:
-        for mail in response['body']['value']:
-            mails.add(mail['userPrincipalName'])
-
-    return mails
-
-
-def create_group(token, group_name, members):
-    url = "https://graph.microsoft.com/v1.0/groups"
-
-    bindStart = "https://graph.microsoft.com/v1.0/users/"
-    members = map(lambda x: '\"' + bindStart + x + '\"', members)
-    members_str = '[' + ',\n'.join(members) + ']'
-
-    payload = "{\n  " \
-              f"\"displayName\": \"{group_name}\",\n  " \
-              "\"groupTypes\": [\n    \"Unified\"\n  ],\n  " \
-              "\"mailEnabled\": true,\n  " \
-              f"\"mailNickname\": \"{group_name}\",\n  " \
-              "\"securityEnabled\": true,\n  " \
-              "\"owners@odata.bind\": [\n      " \
-              f"\"https://graph.microsoft.com/v1.0/users/{Variables.user_name}\"\n      " \
-              "],\n  " \
-              "\"visibility\": \"Public\",\n" \
-              "\"members@odata.bind\": " + members_str + " \n}"
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': token
-    }
-
-    response = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
-    print(response)
-    return response['id']
-
-
-def get_group_members(token, group_id):
-    url = f"https://graph.microsoft.com/v1.0/groups/{group_id}/members?$select=userPrincipalName"
-
-    headers = {
-        'Authorization': token
-    }
-
-    response = requests.request("GET", url, headers=headers)
-    members = []
-
-    if response.json()['value']:
-        for i in response.json()['value']:
-            members.append(i['userPrincipalName'])
-
-    return members
-
-
-def get_groups(token):
-    url = f"https://graph.microsoft.com/v1.0/groups?$select=id,displayName"
-
-    headers = {
-        'Authorization': token
-    }
-    response = requests.request("GET", url, headers=headers).json()
-    value = response['value']
-
-    while '@odata.nextLink' in response:
-        response = requests.request("GET", response['@odata.nextLink'], headers=headers).json()
-        value.extend(response['value'])
-
-    return value
-
-
-def create_team(token, group_id):
-    url = f"https://graph.microsoft.com/v1.0/groups/{group_id}/team"
-
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': token
-    }
-
-    payload = "{\n  " \
-              "\"memberSettings\": {\n" \
-              "\"allowCreatePrivateChannels\": true,\n" \
-              "\"allowCreateUpdateChannels\": true\n" \
-              "},\n" \
-              "\"messagingSettings\": {\n" \
-              "\"allowUserEditMessages\": true,\n" \
-              "\"allowUserDeleteMessages\": true\n" \
-              "},\n" \
-              "\"funSettings\": {\n" \
-              "\"allowGiphy\": true,\n" \
-              "\"giphyContentRating\": \"strict\"\n" \
-              "}\n" \
+    payload = "{\n" \
+              f"\"userId\": \"{get_user(student_email)['id']}\" \n" \
               "}"
 
-    response = requests.request("PUT", url, headers=headers, data=payload).json()
-    print(response)
-    return 'error' in response
+    requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
 
-
-def get_primary_channels(token, teams_ids):
-    url = "https://graph.microsoft.com/v1.0/$batch"
-
-    payload = "{\n  " \
-              "\"requests\": [\n  "
-    headers = {
-        'Authorization': token,
-        'Content-Type': 'application/json'
-    }
-    curr_id = 1
-
-    for team_id in teams_ids:
-        payload += "{\n" \
-                   f"\"id\": \"{curr_id}\", \n" \
-                   f"\"url\": \"/teams/{team_id}/primaryChannel?$select=id\", \n" \
-                   f"\"method\": \"GET\", \n" \
-                   "\"headers\": {\n" \
-                   f"\"Authorization\": \"{token}\" \n" \
-                   "}\n" \
-                   "}\n"
-
-        if team_id != teams_ids[-1]:
-            payload += ", \n"
-        else:
-            payload += "\n"
-
-        curr_id += 1
-
-    payload += "]\n" \
-               "}"
-
-    parsed_responses = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
-
-    primary_ids = []
-    print(parsed_responses)
-    for response in parsed_responses['responses']:
-        primary_ids.append(response['body']['id'])
-
-    return primary_ids
-
-
-def send_message_to_teams(token, teams_ids, message):
-    primary_channels = get_primary_channels(token, teams_ids)
-    url = "https://graph.microsoft.com/v1.0/$batch"
-
-    payload = "{\n  " \
-              "\"requests\": [\n  "
-    headers = {
-        'Authorization': token,
-        'Content-Type': 'application/json'
-    }
-    curr_id = 1
-
-    for team_id, channel_id in zip(teams_ids, primary_channels):
-        payload += "{\n" \
-                   f"\"id\": \"{curr_id}\", \n" \
-                   f"\"url\": \"/teams/{team_id}/channels/{channel_id}/messages\", \n" \
-                   f"\"method\": \"POST\", \n" \
-                   "\"headers\": {\n" \
-                   f"\"Authorization\": \"{token}\", \n" \
-                   f"\"Content-Type\": \"application/json\" \n" \
-                   "},\n" \
-                   "\"body\": {\n" \
-                   "\"body\": {\n" \
-                   f"\"content\": \"{message}\"\n" \
-                   "}\n" \
-                   "}\n" \
-                   "}"
-
-        if team_id != teams_ids[-1]:
-            payload += ", \n"
-        else:
-            payload += "\n"
-
-    payload += "]\n" \
-               "}"
-
-    parsed_responses = requests.request("POST", url, headers=headers, data=payload.encode('utf8')).json()
-    print(parsed_responses)

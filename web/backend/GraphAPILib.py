@@ -39,6 +39,7 @@ def get_submissions(assignment_link):
     }
 
     response = requests.request("GET", url, headers=headers).json()
+    print(response)
     submission_id = response['value'][0]['id']
 
     return submission_id

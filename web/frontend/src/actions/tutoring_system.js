@@ -6,7 +6,7 @@ export async function getTask(task_id, csignal) {
     const encodedValue = encodeURIComponent(task_id);
     console.log("fetching redirect url from server");
     const response = await fetch(
-        `http://localhost:5000/tasks?id=${encodedValue}`
+        `https://management-system-api.azurewebsites.net/tasks?id=${encodedValue}`
         , {signal: csignal})
 
     return await response.json();
